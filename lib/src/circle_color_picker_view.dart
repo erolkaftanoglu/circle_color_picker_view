@@ -7,11 +7,13 @@ class ColorPickerView extends StatefulWidget {
       {this.radius = 120,
       this.thumbRadius = 10,
       this.initialColor = const Color(0xffff0000),
-      required this.colorListener});
+      required this.colorListener,
+      required this.voidCallback});
 
   final double radius;
   final double thumbRadius;
   final ValueChanged<Color>? colorListener;
+  final void Function(Color) voidCallback;
   final Color initialColor;
 
   @override
@@ -30,13 +32,18 @@ class _ColorPickerViewState extends State<ColorPickerView> {
   ];
 
   double thumbDistanceToCenter = 0;
+  double thumb2DistanceToCenter = 0;
+
   double thumbRadians = 0;
+  double thumb2Radians = 0;
   double barWidth = 0;
   double barHeight = 0;
 
   Color? mixedColor;
   Color? baseColor;
   double rate = 0;
+
+  Color? activeColor;
 
   @override
   void initState() {
@@ -51,7 +58,14 @@ class _ColorPickerViewState extends State<ColorPickerView> {
 
     thumbRadians =
         degreesToRadians(HSVColor.fromColor(widget.initialColor).hue - 90);
+
+    thumb2Radians =
+        degreesToRadians(HSVColor.fromColor(widget.initialColor).hue - 90);
+
     thumbDistanceToCenter = (widget.radius - widget.thumbRadius) *
+        HSVColor.fromColor(widget.initialColor).saturation;
+
+    thumb2DistanceToCenter = (widget.radius - widget.thumbRadius) *
         HSVColor.fromColor(widget.initialColor).saturation;
   }
 
@@ -72,25 +86,29 @@ class _ColorPickerViewState extends State<ColorPickerView> {
     );
   }
 
-  Widget _thumb(double left, double top) {
+  Widget _thumb(Color color, double left, double top, Function(Color) onClick) {
     return Positioned(
       left: left,
       top: top,
-      child: Container(
-        width: widget.thumbRadius * 2,
-        height: widget.thumbRadius * 2,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.all(Radius.circular(widget.thumbRadius)),
-          boxShadow: <BoxShadow>[
-            BoxShadow(color: Colors.black, spreadRadius: 0.1),
-          ],
-        ),
+      child: GestureDetector(
+        onTap: () => {onClick.call(color)},
         child: Container(
+          width: widget.thumbRadius * 2,
+          height: widget.thumbRadius * 2,
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: mixedColor,
+            color: color,
             borderRadius: BorderRadius.all(Radius.circular(widget.thumbRadius)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(color: Colors.black, spreadRadius: 0.1),
+            ],
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: mixedColor,
+              borderRadius:
+                  BorderRadius.all(Radius.circular(widget.thumbRadius)),
+            ),
           ),
         ),
       ),
@@ -100,10 +118,16 @@ class _ColorPickerViewState extends State<ColorPickerView> {
   Widget _wheelArea() {
     final double radius = widget.radius;
     final double thumbRadius = widget.thumbRadius;
+
     final double thumbCenterX =
         widget.radius + thumbDistanceToCenter * sin(thumbRadians);
     final double thumbCenterY =
         widget.radius + thumbDistanceToCenter * cos(thumbRadians);
+
+    final double thumb2CenterX =
+        widget.radius + thumb2DistanceToCenter * sin(thumb2Radians);
+    final double thumb2CenterY =
+        widget.radius + thumb2DistanceToCenter * cos(thumb2Radians);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -158,7 +182,23 @@ class _ColorPickerViewState extends State<ColorPickerView> {
               ),
             ),
           ),
-          _thumb(thumbCenterX, thumbCenterY),
+          _thumb(
+            Colors.purple,
+            thumbCenterX,
+            thumbCenterY,
+            (color) => {
+              activeColor = color,
+              widget.voidCallback.call(color),
+            },
+          ),
+          _thumb(
+              Colors.green,
+              thumb2CenterX,
+              thumb2CenterY,
+              (color) => {
+                    activeColor = color,
+                    widget.voidCallback.call(color),
+                  }),
         ],
       ),
     );
@@ -208,7 +248,7 @@ class _ColorPickerViewState extends State<ColorPickerView> {
           children: [
             frame,
             content,
-            _thumb(thumbLeft, thumbTop),
+            _thumb(Colors.blue, thumbLeft, thumbTop, (color) => {}),
           ],
         ),
       ),
@@ -234,9 +274,15 @@ class _ColorPickerViewState extends State<ColorPickerView> {
     mixColor();
 
     setState(() {
-      thumbDistanceToCenter =
-          min(distanceToCenter, widget.radius - widget.thumbRadius);
-      thumbRadians = theta;
+      if (activeColor == Colors.green) {
+        thumb2DistanceToCenter =
+            min(distanceToCenter, widget.radius - widget.thumbRadius);
+        thumb2Radians = theta;
+      } else {
+        thumbDistanceToCenter =
+            min(distanceToCenter, widget.radius - widget.thumbRadius);
+        thumbRadians = theta;
+      }
     });
   }
 
